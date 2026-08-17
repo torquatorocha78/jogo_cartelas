@@ -1,138 +1,165 @@
 import streamlit as st
 
-# Configurações da página
+# Configuração da página (deve ser o primeiro comando Streamlit)
 st.set_page_config(
-    page_title="Mestre das Cartelas Mágicas",
+    page_title="Mágica da Matemática Binária",
     page_icon="🔮",
     layout="wide",
     initial_sidebar_state="expanded"
 )
 
-# Estilização CSS personalizada para deixar as cartelas bonitas e responsivas
-st.markdown("""
-<style>
-    .cartela-container {
-        background-color: #1E1E2F;
-        border: 2px solid #4F46E5;
+# --- 1. ESTILIZAÇÃO CSS CUSTOMIZADA ---
+# Melhoria visual baseada nos seus pontos, com tratamento de contraste e responsividade.
+st.markdown(
+    """
+    <style>
+    .cartela-box {
+        background-color: rgba(30, 30, 47, 0.6);
+        border: 1px solid #4F46E5;
         border-radius: 12px;
-        padding: 15px;
-        margin-bottom: 20px;
-        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
-        text-align: center;
-    }
-    .cartela-title {
-        color: #6366F1;
-        font-size: 1.2rem;
-        font-weight: bold;
-        margin-bottom: 10px;
-        border-bottom: 1px solid #4F46E5;
-        padding-bottom: 5px;
+        padding: 16px;
+        margin-bottom: 15px;
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
     }
     .grid-numeros {
         display: grid;
         grid-template-columns: repeat(4, 1fr);
         gap: 6px;
+        text-align: center;
         font-family: 'Courier New', Courier, monospace;
-        font-size: 1.1rem;
+        font-size: 0.9rem;
         font-weight: bold;
-        color: #E2E8F0;
     }
     .numero-item {
-        background-color: #2D2D44;
-        padding: 4px;
-        border-radius: 4px;
+        background: linear-gradient(135deg, #312E81, #4F46E5);
+        color: #FFFFFF !important;
+        padding: 6px;
+        border-radius: 6px;
+        transition: transform 0.2s, box-shadow 0.2s;
     }
-    .destaque-primeiro {
-        color: #F59E0B; /* Destaque para o primeiro número da cartela */
+    .numero-item:hover {
+        transform: scale(1.1);
+        box-shadow: 0 0 8px #818CF8;
     }
-</style>
-""", unsafe_allow_html=True)
+    .titulo-cartela {
+        text-align: center;
+        color: #818CF8;
+        font-weight: bold;
+        margin-bottom: 10px;
+    }
+    </style>
+    """,
+    unsafe_allow_html=True
+)
 
+# --- 2. CAMADA DE NEGÓCIO E ALGORITMOS (CACHEADO) ---
+@st.cache_data
+def gerar_cartelas(max_num: int = 127) -> dict[int, list[int]]:
+    """
+    Gera as cartelas dinamicamente com base nas potências de 2.
+    Para max_num = 127, serão geradas 7 cartelas (bits de 2^0 a 2^6).
+    """
+    num_bits = max_num.bit_length()
+    cartelas = {2**i: [] for i in range(num_bits)}
 
-def gerar_cartelas(max_numero=63):
-    """
-    Gera as cartelas dinamicamente com base na lógica binária.
-    Retorna um dicionário onde a chave é a potência de 2 (primeiro número da cartela)
-    e o valor é a lista de números que pertencem a essa cartela.
-    """
-    cartelas = {}
-    # 6 cartelas cobrem de 1 a 63 (2^0 até 2^5)
-    for i in range(6):
-        valor_cartela = 2**i
-        numeros_cartela = []
-        for num in range(1, max_numero + 1):
-            # Verifica se o i-ésimo bit está ativo no número
+    for num in range(1, max_num + 1):
+        for i in range(num_bits):
             if (num >> i) & 1:
-                numeros_cartela.append(num)
-        cartelas[valor_cartela] = numeros_cartela
+                cartelas[2**i].append(num)
+
     return cartelas
 
+# Inicializa as cartelas (limite aumentado para 127)
+LIMITE_MAXIMO = 127
+cartelas = gerar_cartelas(LIMITE_MAXIMO)
 
-# Inicialização das cartelas
-cartelas = gerar_cartelas()
+# --- 3. CONTROLE DE ESTADO (SESSION STATE) ---
+# Inicialização segura dos estados dos checkboxes
+for bit_value in cartelas.keys():
+    state_key = f"cartela_{bit_value}"
+    if state_key not in st.session_state:
+        st.session_state[state_key] = False
 
-# Título e Introdução
-st.title("🔮 O Mestre das Cartelas Mágicas")
-st.markdown("""
-### Como Jogar:
-1. Pense em um número inteiro de **1 a 63** (não me diga qual é!).
-2. Olhe atentamente para as **6 cartelas** abaixo.
-3. Marque a caixinha correspondente **apenas** nas cartelas onde o seu número pensado aparece.
-4. Clique no botão **"Adivinhar Número"** para ver a mágica acontecer!
-""")
+# --- 4. INTERFACE DO USUÁRIO (UI) ---
 
-st.write("---")
+st.title("🔮 O Mistério do Sistema Binário")
+st.write(
+    f"Pense em um número de **1 a {LIMITE_MAXIMO}**. "
+    "Selecione 'Sim' abaixo de cada cartela onde seu número aparece. Eu vou adivinhá-lo!"
+)
 
-# Criar um layout de colunas para as cartelas (3 colunas x 2 linhas)
-cols = st.columns(3)
-escolhas = {}
+# Botão Limpar Seleção (Melhoria 2)
+if st.button("🔄 Limpar Seleção", type="secondary"):
+    for bit_value in cartelas.keys():
+        st.session_state[f"cartela_{bit_value}"] = False
+    st.rerun()
 
-# Renderizar as cartelas
-for index, (primeiro_num, numeros) in enumerate(cartelas.items()):
-    col_index = index % 3
-    with cols[col_index]:
-        # HTML para renderizar a cartela formatada em Grid
-        grid_html = "".join([
-            f'<div class="numero-item {"destaque-primeiro" if n == primeiro_num else ""}">{n:02d}</div>'
-            for n in numeros
-        ])
+st.divider()
 
-        st.markdown(f"""
-        <div class="cartela-container">
-            <div class="cartela-title">Cartela {index + 1}</div>
-            <div class="grid-numeros">
-                {grid_html}
-            </div>
-        </div>
-        """, unsafe_allow_html=True)
+# --- 5. RENDERIZAÇÃO DAS CARTELAS EM GRID (Melhoria 1 adaptada para 7 itens) ---
+# Como são 7 cartelas, usamos 2 linhas de 4 colunas (a última fica vazia para layout limpo)
+cartelas_itens = list(cartelas.items())
+colunas_por_linha = 4
 
-        # Checkbox para o usuário selecionar se o número está nesta cartela
-        escolhas[primeiro_num] = st.checkbox(
-            f"Meu número está na Cartela {index + 1}", 
-            key=f"cartela_{primeiro_num}"
+for i in range(0, len(cartelas_itens), colunas_por_linha):
+    chunk = cartelas_itens[i : i + colunas_por_linha]
+    cols = st.columns(colunas_por_linha)
+
+    for idx, (bit_value, numeros) in enumerate(chunk):
+        with cols[idx]:
+            # Container visual da cartela
+            st.markdown(f"<div class='titulo-cartela'>Cartela {bit_value}</div>", unsafe_allow_html=True)
+
+            # Grid de números em HTML/CSS para performance e controle de hover
+            numeros_html = "".join([f"<div class='numero-item'>{n}</div>" for n in numeros])
+            st.markdown(
+                f"<div class='cartela-box'><div class='grid-numeros'>{numeros_html}</div></div>",
+                unsafe_allow_html=True
+            )
+
+            # Checkbox vinculado diretamente ao Session State
+            st.checkbox(
+                "Meu número está aqui",
+                key=f"cartela_{bit_value}"
+            )
+
+st.divider()
+
+# --- 6. CÁLCULO DO RESULTADO E EXPLICAÇÃO (Melhoria 3, 4 e 6) ---
+resultado = sum(
+    bit_value for bit_value, _ in cartelas_itens 
+    if st.session_state[f"cartela_{bit_value}"]
+)
+
+if resultado > 0:
+    st.success(f"### 🎉 O número que você pensou é: **{resultado}**!")
+
+    # Detalhamento didático
+    col1, col2 = st.columns(2)
+
+    with col1:
+        st.markdown("### 🖥️ Lógica Binária por trás da Mágica")
+        # Mostra o número binário com 7 bits preenchidos com zeros à esquerda
+        binario = bin(resultado)[2:].zfill(7)
+        st.code(
+            f"Número Decimal: {resultado}\n"
+            f"Representação Binária: {binario}",
+            language="text"
         )
 
-st.write("---")
+    with col2:
+        st.markdown("### 🧮 Explicação Matemática")
+        # Constrói dinamicamente a soma das potências de 2 ativas
+        partes_soma = [
+            str(bit_value) for bit_value, _ in cartelas_itens 
+            if st.session_state[f"cartela_{bit_value}"]
+        ]
+        expressao_soma = " + ".join(partes_soma)
 
-# Seção de adivinhação
-col_btn, col_res = st.columns([1, 2])
-
-with col_btn:
-    st.write("")
-    st.write("")
-    botao_adivinhar = st.button("🔮 Adivinhar Meu Número!", use_container_width=True, type="primary")
-
-with col_res:
-    if botao_adivinhar:
-        # Lógica matemática: soma do primeiro número de cada cartela selecionada
-        resultado = sum(primeiro_num for primeiro_num, selecionado in escolhas.items() if selecionado)
-
-        if resultado > 0:
-            st.balloons()
-            st.success(f"### 🎉 Eu sei o seu número! Você pensou no número **{resultado}**!")
-            st.info(
-                f"**Segredo do Mestre:** Eu somei silenciosamente os primeiros números das cartelas que você escolheu: "
-                f"({ ' + '.join([str(num) for num, sel in escolhas.items() if sel]) }) = **{resultado}**! 😉"
-            )
-        else:
-            st.warning("⚠️ Você não selecionou nenhuma cartela! Pense em um número e marque as cartelas onde ele aparece.")
+        st.write(
+            f"Cada cartela que você marcou representa uma potência de 2. "
+            f"O truque soma o primeiro elemento de cada cartela marcada:\n\n"
+            f"**{resultado} = {expressao_soma}**"
+        )
+else:
+    st.info("💡 Selecione 'Sim' nas cartelas para começar a mágica!")
